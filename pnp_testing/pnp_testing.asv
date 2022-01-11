@@ -22,23 +22,28 @@
 %Try matching camera coordinates with the coordinates in plot3 to see if it
 %gets fixed
 %Figure out why I needed to transpose the rotation matrix in tform
-%figure out what accuracy of the pnp alg is by reporjecting the points
+%figure out what accuracy of the pnp alg is by reprojecting the points
 %using extrinsics looks like
+
+%MAKE SURE TO LOAD "pnp_testing_workspace.mat" BEFORE RUNNING SCRIPT FOR THE FIRST TIME!!!
 
 
 close all
 
 %rotation order: RzRyRxv
-gamma = 180;
+%gamma = 180;
+gamma = 0;
 rotz = [ cosd(gamma) -sind(gamma) 0; ...
         sind(gamma) cosd(gamma) 0; ...
         0 0 1];
 
+%beta = 270;
 beta = 270;
 roty = [ cosd(beta) 0  sind(beta); ...
         0 1 0; ...
         -sind(beta) 0 cosd(beta)];
 
+%alpha = 90;
 alpha = 90;
 rotx = [1 0 0; ...
         0 cosd(alpha) -sind(alpha); ...
@@ -62,9 +67,9 @@ axis manual
 xlabel('X (mm)');
 ylabel('Y (mm)');
 zlabel('Z (mm)');
-xlim([-6000 6000])
-ylim([-6000 6000])
-zlim([-1 2000])
+xlim([-5000 5000])
+ylim([-5000 5000])
+zlim([-1000 1000])
 
 %Draw the arc that the marker board rotates about
 r = 5000;
@@ -77,6 +82,7 @@ plot3(x_arc, y_arc, zeros(1,numel(x_arc)));
 %use transformPointsForward function with the tform in order to move from
 %marker to world frame
 
+%rotations of marker board
 gamma_board = -45;
 rotz_board = [ cosd(gamma_board) -sind(gamma_board) 0; ...
         sind(gamma_board) cosd(gamma_board) 0; ...
@@ -92,6 +98,7 @@ rotx_board = [1 0 0; ...
         0 cosd(alpha_board) -sind(alpha_board); ...
         0 sind(alpha_board) cosd(alpha_board)];
 
+%translation of marker board
 horiz_board = r*cosd(gamma_board); %X axis
 vert_board =  r*sind(-gamma_board); %Y axis
 depth_board = 0; %Z axis
@@ -107,6 +114,7 @@ tform_board = rigid3d(rotationMat_board, trans_board);
 
 [x_out,y_out,z_out] = transformPointsForward(tform_board, brdX_test, brdY_test, brdZ_test);
 plot3(x_out, y_out, z_out, 'b*');
+%make blue fill between marker board corner points to make it easier to see
 h1 = fill3(x_out,y_out,z_out, [0 0 1]);
 
 hold off
@@ -117,8 +125,15 @@ worldPts = horzcat(x_out,y_out,z_out)
 figure(2)
 imagePoints = worldToImage(params.Intrinsics, rotationMat',trans, worldPts)
 plot(imagePoints(:,1), imagePoints(:,2), 'g*-')
+hold on
+%set(gca,'XDir','reverse')
+set(gca,'YDir','reverse')
 xlim([1 3264])
 ylim([1 2464])
 
-%project image points back into world
-newWorldPoints = pointsToWorld(params.Intrinsics,R,t,imagePoints);
+%project image points back into world. Getting an error here...
+[undistortedPoints, repro] = undistortFisheyePoints(imagePoints, params.Intrinsics)
+plot(undistortedPoints(:,1), undistortedPoints(:,2), 'r*-')
+
+%newWorldPoints = pointsToWorld(params.Intrinsics,rotationMat_board',-trans_board*rotationMat_board',undistortedPoints);
+

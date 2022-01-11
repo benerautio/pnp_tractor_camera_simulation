@@ -31,16 +31,19 @@
 close all
 
 %rotation order: RzRyRxv
-gamma = 180;
+%gamma = 180;
+gamma = 0;
 rotz = [ cosd(gamma) -sind(gamma) 0; ...
         sind(gamma) cosd(gamma) 0; ...
         0 0 1];
 
+%beta = 270;
 beta = 270;
 roty = [ cosd(beta) 0  sind(beta); ...
         0 1 0; ...
         -sind(beta) 0 cosd(beta)];
 
+%alpha = 90;
 alpha = 90;
 rotx = [1 0 0; ...
         0 cosd(alpha) -sind(alpha); ...
@@ -64,9 +67,9 @@ axis manual
 xlabel('X (mm)');
 ylabel('Y (mm)');
 zlabel('Z (mm)');
-xlim([-1 1])
-ylim([-1 1])
-zlim([-1 1])
+xlim([-5000 5000])
+ylim([-5000 5000])
+zlim([-1000 1000])
 
 %Draw the arc that the marker board rotates about
 r = 5000;
@@ -118,12 +121,34 @@ hold off
 
 %project world points to camera. This uses the intrinsics from the
 %successful calibration we had in the lab
-worldPts = horzcat(x_out,y_out,z_out)
+worldPts = horzcat(x_out,y_out,z_out);
 figure(2)
-imagePoints = worldToImage(params.Intrinsics, rotationMat',trans, worldPts)
+imagePoints = worldToImage(params.Intrinsics, rotationMat',trans, worldPts);
 plot(imagePoints(:,1), imagePoints(:,2), 'g*-')
+hold on
+%set(gca,'XDir','reverse')
+set(gca,'YDir','reverse')
 xlim([1 3264])
 ylim([1 2464])
 
-%project image points back into world. Getting an error here...
-newWorldPoints = pointsToWorld(params.Intrinsics,rotationMat',trans,imagePoints);
+%Had to convert the fisheye calibration parameters to a "virtual pinhole"
+%model in order to use matlab's p3p
+[undistortedPoints, intrinsics1, reprojectionErrors] = undistortFisheyePoints(imagePoints, params.Intrinsics);
+plot(undistortedPoints(:,1), undistortedPoints(:,2), 'r*-')
+hold off
+
+%run p3p
+[worldOrientation, worldLocation, inlierIdx, status] = estimateWorldCameraPose(undistortedPoints, horzcat(brdX_test, brdY_test, brdZ_test), intrinsics1)
+
+figure(3)
+
+%plot the results
+pcshow(horzcat(brdX_test, brdY_test, brdZ_test), ...
+     'MarkerSize',300);
+hold on
+plotCamera('Size', 500, 'Orientation', worldOrientation, 'Location', ...
+    worldLocation);
+
+xlim([-10000 10000])
+ylim([-10000 10000])
+zlim([-10000 10000])
